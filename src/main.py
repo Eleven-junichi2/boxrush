@@ -1,14 +1,16 @@
 import sys
 import pygame
 
+SCRN_WIDTH = 512
+SCRN_HEIGHT = 434
+SCRN_SIZE = SCRN_WIDTH, SCRN_HEIGHT
+BLACK = 0, 0, 0
+
 
 def main():
     pygame.init()
-    SCRN_WIDTH = 512
-    SCRN_HEIGHT = 434
-    SCRN_SIZE = SCRN_WIDTH, SCRN_HEIGHT
-    BLACK = 0, 0, 0
     screen = pygame.display.set_mode(SCRN_SIZE)
+    pygame.display.set_caption("Boxrush")
     while 1:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
