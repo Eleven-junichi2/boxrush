@@ -1,11 +1,10 @@
 import pathlib
+from pathlib import Path
 import sys
 
 import pygame
 
 MAIN_PRG_DIR = pathlib.Path(__file__).absolute().parent
-ASSET_DIR = MAIN_PRG_DIR / "assets"
-FONT_DIR = ASSET_DIR / "fonts"
 SCRN_WIDTH = 512
 SCRN_HEIGHT = 434
 SCRN_SIZE = SCRN_WIDTH, SCRN_HEIGHT
@@ -15,9 +14,33 @@ KEY_REPEAT_DELAY = 125
 KEY_REPEAT_INTERVAL = 125
 
 
+class AssetPathGetter():
+    def __init__(self, asset_dir_path, font_dir_name, img_dir_name):
+        self.asset_dir = Path(asset_dir_path)
+        self.font_dir_name = font_dir_name
+        self.img_dir_name = img_dir_name
+
+    def font_path(self, filename) -> pathlib.Path:
+        return self.asset_dir / self.font_dir_name / filename
+
+    def img_path(self, filename) -> pathlib.Path:
+        return self.asset_dir / self.img_dir_name / filename
+
+
+class SpriteSheet:
+    def __init__(self, filename) -> None:
+        self.sheet = pygame.image.load(filename).convert_alpha()
+
+    def get_image(self, x, y, width, height) -> pygame.Surface:
+        image = pygame.Surface((width, height))
+        image.blit(self.spritesheet, (0, 0), (x, y, width, height))
+        return image
+
+
 class PlayerSprite(pygame.sprite.Sprite):
     def __init__(self, *groups) -> None:
         super().__init__(*groups)
+        self.spritesheet = SpriteSheet()
         # self.image =
 
     def update(self, *args, **kwargs) -> None:
@@ -39,10 +62,12 @@ def main():
     pygame.key.set_repeat(KEY_REPEAT_DELAY, KEY_REPEAT_INTERVAL)
     screen = pygame.display.set_mode(SCRN_SIZE)
     pygame.display.set_caption("Boxrush")
-    font_name = "misaki_gothic_2nd.ttf"
-    font = pygame.font.Font(str(FONT_DIR / font_name), 48)
+    asset_path = AssetPathGetter(MAIN_PRG_DIR / "assets", "fonts", "imgs")
+    font = pygame.font.Font(
+        str(asset_path.font_path("misaki_gothic_2nd.ttf")), 48)
     title_text = font.render("Boxrush", True, WHITE)
-    font = pygame.font.Font(str(FONT_DIR / font_name), 32)
+    font = pygame.font.Font(
+        str(asset_path.font_path("misaki_gothic_2nd.ttf")), 32)
     title_pos = (
         text_pos_to_center(
             screen.get_size(), title_text.get_size(), 1, 0.25))
