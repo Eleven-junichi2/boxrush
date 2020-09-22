@@ -1,6 +1,5 @@
 import pathlib
 import sys
-from typing import Tuple
 
 import pygame
 
@@ -16,7 +15,16 @@ KEY_REPEAT_DELAY = 125
 KEY_REPEAT_INTERVAL = 125
 
 
-def text_pos_to_center(screen_size: Tuple, text_size: Tuple,
+class PlayerSprite(pygame.sprite.Sprite):
+    def __init__(self, *groups) -> None:
+        super().__init__(*groups)
+        # self.image =
+
+    def update(self, *args, **kwargs) -> None:
+        pass
+
+
+def text_pos_to_center(screen_size, text_size,
                        multiply_to_fix_pos_x=1, multiply_to_fix_pos_y=1, ):
     """find coordinate to center text
     screen_size: (width, height)
