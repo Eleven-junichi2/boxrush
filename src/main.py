@@ -74,6 +74,7 @@ def main():
     menu_items = ["game", "config", "exit"]
     menu_item_num = len(menu_items)
     menu_select_num = 0
+    game_scene = 0
     while 1:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -89,6 +90,9 @@ def main():
                     menu_select_num += 1
                     if menu_select_num > menu_item_num-1:
                         menu_select_num = 0
+                elif (event.key == pygame.K_z):
+                    if menu_select_num == 2:
+                        sys.exit()
         screen.fill(BLACK)
         # --draw here--
         screen.blit(title_text, title_pos)
