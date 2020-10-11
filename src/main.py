@@ -14,7 +14,91 @@ KEY_REPEAT_DELAY = 125
 KEY_REPEAT_INTERVAL = 125
 
 
-class AssetPathGetter():
+class Scene:
+    def __init__(self, screen_manager):
+        self.sm = screen_manager
+
+    def handle_event(self, event):
+        pass
+
+    def update(self):
+        pass
+
+    def render(self):
+        self.sm.screen.fill(BLACK)
+        pygame.display.update()
+
+
+class SceneManager:
+    def __init__(self, screen, asset_path):
+        self.screen = screen
+        self.asset_path = asset_path
+        self.scene_list = {}
+        self.current_scene = None
+
+    def append_scene(self, scene_name, scene: Scene):
+        self.scene_list[scene_name] = scene
+
+    def set_current_scene(self, scene_name):
+        self.current_scene = self.scene_list[scene_name]
+
+
+class TitleScene(Scene):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.menu_items = ["game", "config", "exit"]
+        self.menu_item_num = len(self.menu_items)
+        self.menu_select_num = 0
+
+    def handle_event(self, event):
+        if event.type == pygame.KEYDOWN:
+            if (event.key == pygame.K_UP or
+                    event.key == pygame.K_LEFT):
+                self.menu_select_num -= 1
+                if self.menu_select_num < 0:
+                    self.menu_select_num = self.menu_item_num-1
+            elif (event.key == pygame.K_DOWN or
+                    event.key == pygame.K_RIGHT):
+                self.menu_select_num += 1
+                if self.menu_select_num > self.menu_item_num-1:
+                    self.menu_select_num = 0
+            elif (event.key == pygame.K_z):
+                if self.menu_select_num == 0:
+                    self.sm.set_current_scene("game")
+                if self.menu_select_num == 2:
+                    sys.exit()
+
+    def update(self):
+        pass
+
+    def render(self):
+        self.sm.screen.fill(BLACK)
+        font = pygame.font.Font(
+            str(self.sm.asset_path.font_path("misaki_gothic_2nd.ttf")), 48)
+        title_text = font.render("Boxrush", True, WHITE)
+        font = pygame.font.Font(
+            str(self.sm.asset_path.font_path("misaki_gothic_2nd.ttf")), 32)
+        title_pos = (
+            text_pos_to_center(
+                self.sm.screen.get_size(), title_text.get_size(), 1, 0.25))
+        self.sm.screen.blit(title_text, title_pos)
+        for index in range(self.menu_item_num):
+            start_text = font.render(self.menu_items[index], True, WHITE)
+            self.sm.screen.blit(
+                start_text, (title_pos[0], title_pos[1] * (index+3)))
+            menu_cursor = font.render(">", True, WHITE)
+            self.sm.screen.blit(
+                menu_cursor,
+                (title_pos[0] * 0.75, title_pos[1] * (self.menu_select_num+3)))
+        pygame.display.update()
+
+
+class GameScene(Scene):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+
+class AssetPathGetter:
     def __init__(self, asset_dir_path, font_dir_name, img_dir_name):
         self.asset_dir = Path(asset_dir_path)
         self.font_dir_name = font_dir_name
@@ -47,6 +131,29 @@ class PlayerSprite(pygame.sprite.Sprite):
         pass
 
 
+class Game:
+    def __init__(self, title="Boxrush"):
+        pygame.init()
+        pygame.key.set_repeat(KEY_REPEAT_DELAY, KEY_REPEAT_INTERVAL)
+        pygame.display.set_caption(title)
+        self.screen = pygame.display.set_mode(SCRN_SIZE)
+        self.asset_path = AssetPathGetter(
+            MAIN_PRG_DIR / "assets", "fonts", "imgs")
+        self.sm = SceneManager(self.screen, self.asset_path)
+        self.sm.append_scene("title", TitleScene(self.sm))
+        self.sm.append_scene("game", GameScene(self.sm))
+        self.sm.set_current_scene("title")
+
+    def run(self):
+        while True:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    sys.exit()
+                self.sm.current_scene.handle_event(event)
+                self.sm.current_scene.update()
+                self.sm.current_scene.render()
+
+
 def text_pos_to_center(screen_size, text_size,
                        multiply_to_fix_pos_x=1, multiply_to_fix_pos_y=1, ):
     """find coordinate to center text
@@ -58,58 +165,13 @@ def text_pos_to_center(screen_size, text_size,
 
 
 def main():
-    pygame.init()
-    pygame.key.set_repeat(KEY_REPEAT_DELAY, KEY_REPEAT_INTERVAL)
-    screen = pygame.display.set_mode(SCRN_SIZE)
-    pygame.display.set_caption("Boxrush")
-    asset_path = AssetPathGetter(MAIN_PRG_DIR / "assets", "fonts", "imgs")
-    font = pygame.font.Font(
-        str(asset_path.font_path("misaki_gothic_2nd.ttf")), 48)
-    title_text = font.render("Boxrush", True, WHITE)
-    font = pygame.font.Font(
-        str(asset_path.font_path("misaki_gothic_2nd.ttf")), 32)
-    title_pos = (
-        text_pos_to_center(
-            screen.get_size(), title_text.get_size(), 1, 0.25))
-    menu_items = ["game", "config", "exit"]
-    menu_item_num = len(menu_items)
-    menu_select_num = 0
-    game_scene = 0
-    while 1:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                sys.exit()
-            if event.type == pygame.KEYDOWN:
-                if (event.key == pygame.K_UP or
-                        event.key == pygame.K_LEFT):
-                    menu_select_num -= 1
-                    if menu_select_num < 0:
-                        menu_select_num = menu_item_num-1
-                elif (event.key == pygame.K_DOWN or
-                        event.key == pygame.K_RIGHT):
-                    menu_select_num += 1
-                    if menu_select_num > menu_item_num-1:
-                        menu_select_num = 0
-                elif (event.key == pygame.K_z):
-                    if menu_select_num == 2:
-                        sys.exit()
-        screen.fill(BLACK)
-        # --draw here--
-        screen.blit(title_text, title_pos)
-        for index in range(menu_item_num):
-            start_text = font.render(menu_items[index], True, WHITE)
-            screen.blit(
-                start_text, (title_pos[0], title_pos[1] * (index+3)))
-            menu_cursor = font.render(">", True, WHITE)
-            screen.blit(
-                menu_cursor,
-                (title_pos[0] * 0.75, title_pos[1] * (menu_select_num+3)))
-        # ----
-        pygame.display.update()
+    game = Game()
+    game.run()
 
 
 if __name__ == "__main__":
     try:
+        # this game program start from here
         main()
     except SystemExit:
         pass
