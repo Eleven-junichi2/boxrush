@@ -6,8 +6,8 @@ import pygame
 
 GAME_TITLE = "YUMA"
 MAIN_PRG_DIR = pathlib.Path(__file__).absolute().parent
-SCRN_WIDTH = 512
-SCRN_HEIGHT = 434
+SCRN_WIDTH = 768  # 512*1.5
+SCRN_HEIGHT = 651  # 434*1.5
 SCRN_SIZE = SCRN_WIDTH, SCRN_HEIGHT
 BLACK = 0, 0, 0
 WHITE = 255, 255, 255
@@ -16,9 +16,10 @@ KEY_REPEAT_INTERVAL = 125
 
 
 class SceneManager:
-    def __init__(self, screen: pygame.Surface, asset_path):
+    def __init__(self, screen: pygame.Surface, assets_path, game_runner):
         self.screen = screen
-        self.asset_path = asset_path
+        self.assets_path = assets_path
+        self.game_runnner = game_runner
         self.scene_list = {}
         self.current_scene = None
 
@@ -65,7 +66,7 @@ class TitleScene(Scene):
                     self.menu_select_num = 0
             elif (event.key == pygame.K_z):
                 if self.menu_select_num == 0:
-                    self.sm.set_current_scene("game")
+                    self.sm.set_current_scene("world_select")
                 if self.menu_select_num == 2:
                     sys.exit()
 
@@ -75,10 +76,10 @@ class TitleScene(Scene):
     def render(self):
         self.sm.screen.fill(BLACK)
         font = pygame.font.Font(
-            str(self.sm.asset_path.font_path("misaki_gothic_2nd.ttf")), 48)
+            str(self.sm.assets_path.font_path("misaki_gothic_2nd.ttf")), 48)
         title_text = font.render(GAME_TITLE, True, WHITE)
         font = pygame.font.Font(
-            str(self.sm.asset_path.font_path("misaki_gothic_2nd.ttf")), 32)
+            str(self.sm.assets_path.font_path("misaki_gothic_2nd.ttf")), 32)
         title_pos = (
             text_pos_to_center(
                 self.sm.screen.get_size(), title_text.get_size(), 1, 0.25))
@@ -99,40 +100,170 @@ class GameScene(Scene):
         super().__init__(*args, **kwargs)
         self.prepared_terrain_map = False
         self.terrain = Terrain()
-        MAP_HEIGHT = 16
-        MAP_WIDTH = 16
-        self.terrain.reset_map(3, MAP_HEIGHT, MAP_WIDTH)
-        self.terrain.fill_map(2, 3, 1, 4, 6, "Glass")
+        self.MAP_HEIGHT = 64
+        self.MAP_WIDTH = 64
+        self.MAP_VIEWER_HEIGHT = 480
+        self.MAP_VIEWER_WIDTH = 608
+        self.scroll_x = 0
+        self.scroll_y = 0
+        self.scroll_vx = 0
+        self.scroll_vy = 0
+        self.terrain.reset_map(4, self.MAP_HEIGHT, self.MAP_WIDTH)
+        self.terrain.fill_map(2, 0, 64, 0, 64, "Glass")
+        self.terrain.rewrite_map_tile(2, 44, 44, None)
+        self.terrain.rewrite_map_tile(0, 44, 44, "Water")
+        self.map_surface = pygame.Surface(
+            (self.MAP_WIDTH*16, self.MAP_HEIGHT*16)).convert_alpha()
+        self.minimap_surface = pygame.Surface(
+            (self.MAP_WIDTH, self.MAP_HEIGHT))
+
+    def handle_event(self, event):
+        if event.type == pygame.KEYDOWN:
+            if pygame.key.get_pressed()[pygame.K_UP]:
+                self.scroll_vy = -5
+            if pygame.key.get_pressed()[pygame.K_DOWN]:
+                self.scroll_vy = 5
+            if pygame.key.get_pressed()[pygame.K_RIGHT]:
+                self.scroll_vx = 5
+            if pygame.key.get_pressed()[pygame.K_LEFT]:
+                self.scroll_vx = -5
+            self.scroll_x += self.scroll_vx
+            self.scroll_y += self.scroll_vy
+            # self.map_surface.scroll(self.scroll_vx, self.scroll_vy)
+            self.scroll_vx = 0
+            self.scroll_vy = 0
 
     def render(self):
         self.sm.screen.fill(BLACK)
         self.render_terrain(self.terrain.map)
+        self.render_minimap(self.terrain.map)
+        self.sm.screen.blit(self.minimap_surface,
+                            (16 + self.MAP_VIEWER_WIDTH + 8, 16),
+                            (0, 0, self.MAP_WIDTH, self.MAP_HEIGHT))
+        self.sm.screen.blit(self.map_surface,
+                            (16, 16),
+                            (0+self.scroll_x,
+                             0+self.scroll_y,
+                             self.MAP_VIEWER_WIDTH,
+                             self.MAP_VIEWER_HEIGHT))
+        self.sm.screen.fill(
+            (144, 78, 144), (0, SCRN_HEIGHT - 139, 768, 139))
         pygame.display.update()
 
     def render_terrain(self, terrain_map):
-        sprite = SpriteSheet(self.sm.asset_path.img_path("skyeyebg.png"))
+        sprite = SpriteSheet(self.sm.assets_path.img_path("skyeyebg.png"))
         for z in range(len(terrain_map)):
             for y in range(len(terrain_map[0])):
                 for x in range(len(terrain_map[0][0])):
                     if terrain_map[z][y][x] == 1:
-                        self.sm.screen.blit(
+                        self.map_surface.blit(
                             sprite.get_image(0, 0, 16, 16), (16*x, 16*y))
                     elif terrain_map[z][y][x] == 2:
-                        self.sm.screen.blit(
+                        self.map_surface.blit(
                             sprite.get_image(16, 0, 16, 16), (16*x, 16*y))
+                    elif terrain_map[z][y][x] == 3:
+                        self.map_surface.blit(
+                            sprite.get_image(32, 0, 16, 16), (16*x, 16*y))
+
+    def render_minimap(self, terrain_map):
+        for z in range(len(terrain_map)):
+            for y in range(len(terrain_map[0])):
+                for x in range(len(terrain_map[0][0])):
+                    minimap_tile_color = (0, 0, 0)
+                    if terrain_map[0][y][x] != 0:
+                        minimap_tile_color = (123, 0, 0)
+                        self.minimap_surface.fill((66, 66, 0), (x, y, 1, 1))
+                    if terrain_map[1][y][x] != 0:
+                        minimap_tile_color = (123, 123, 0)
+                        self.minimap_surface.fill((123, 123, 0), (x, y, 1, 1))
+                    if terrain_map[2][y][x] != 0:
+                        minimap_tile_color = (255, 255, 0)
+                    if terrain_map[3][y][x] != 0:
+                        minimap_tile_color = (255, 255, 125)
+                    self.minimap_surface.fill(minimap_tile_color, (x, y, 1, 1))
+
+
+class WorldSelectScene(Scene):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.wm = self.sm.game_runnner.world_manager
+        self.menu_items = ["P", ]
+        self.menu_item_num = len(self.menu_items)
+        self.menu_select_num = 0
+
+    def handle_event(self, event):
+        if event.type == pygame.KEYDOWN:
+            if (event.key == pygame.K_UP or
+                    event.key == pygame.K_LEFT):
+                self.menu_select_num -= 1
+                if self.menu_select_num < 0:
+                    self.menu_select_num = self.menu_item_num-1
+            elif (event.key == pygame.K_DOWN or
+                    event.key == pygame.K_RIGHT):
+                self.menu_select_num += 1
+                if self.menu_select_num > self.menu_item_num-1:
+                    self.menu_select_num = 0
+            elif (event.key == pygame.K_z):
+                if self.menu_select_num == 0:
+                    self.sm.set_current_scene("game")
+                if self.menu_select_num == 2:
+                    self.sm.set_current_scene("title")
+
+    def update(self):
+        pass
+
+    def render(self):
+        self.sm.screen.fill(BLACK)
+        font = pygame.font.Font(
+            str(self.sm.assets_path.font_path("misaki_gothic_2nd.ttf")), 24)
+        world_preview_frame_img = pygame.image.load(
+            str(self.sm.assets_path.img_path("world_picture_frame.png"))
+        ).convert_alpha()
+        MENU_ITEM_WIDTH = 496
+        MENU_ITEM_HEIGHT = 64
+        MENU_ITEM_X_POS = SCRN_WIDTH * 0.5 - MENU_ITEM_WIDTH * 0.5
+        self.sm.screen.fill(
+            (122, 122, 122),
+            (SCRN_WIDTH * 0.5 - MENU_ITEM_WIDTH * 0.5, 48,
+             MENU_ITEM_WIDTH, MENU_ITEM_HEIGHT))
+        self.sm.screen.blit(world_preview_frame_img, (0, 0))
+        text = font.render("Create new world", True, WHITE)
+        self.sm.screen.blit(
+            text,
+            (MENU_ITEM_X_POS + MENU_ITEM_WIDTH * 0.5
+             - text.get_size()[0] * 0.5,
+             48 + MENU_ITEM_HEIGHT * 0.5
+             - text.get_size()[1] * 0.5))
+        pygame.display.update()
 
 
 class AssetPathGetter:
-    def __init__(self, asset_dir_path, font_dir_name, img_dir_name):
-        self.asset_dir = Path(asset_dir_path)
+    def __init__(self, root_dir_path, font_dir_name, img_dir_name,
+                 saves_dir_name):
+        self.asset_dir = Path(root_dir_path)
         self.font_dir_name = font_dir_name
         self.img_dir_name = img_dir_name
+        self.saves_dir_name = saves_dir_name
 
     def font_path(self, filename) -> pathlib.Path:
         return self.asset_dir / self.font_dir_name / filename
 
     def img_path(self, filename) -> pathlib.Path:
         return self.asset_dir / self.img_dir_name / filename
+
+    def saved_assets_path(self, filename):
+        return self.asset_dir / self.saves_dir_name / filename
+
+
+class WorldDataManager:
+    def __init__(self, saves_dir_path):
+        self.saves_dir = Path(saves_dir_path)
+
+    def list_worlds(self):
+        return self.saves_dir.iterdir()
+
+    def save_world(self):
+        pass
 
 
 class SpriteSheet:
@@ -216,11 +347,14 @@ class Game:
         pygame.key.set_repeat(KEY_REPEAT_DELAY, KEY_REPEAT_INTERVAL)
         pygame.display.set_caption(GAME_TITLE)
         self.screen = pygame.display.set_mode(SCRN_SIZE)
-        self.asset_path = AssetPathGetter(
-            MAIN_PRG_DIR / "assets", "fonts", "imgs")
-        self.sm = SceneManager(self.screen, self.asset_path)
+        self.world_manager = WorldDataManager(MAIN_PRG_DIR / "saves")
+        self.assets_path = AssetPathGetter(
+            MAIN_PRG_DIR / "assets", "fonts", "imgs", "saves")
+        # sm means "screen manager"
+        self.sm = SceneManager(self.screen, self.assets_path, self)
         self.sm.append_scene("title", TitleScene(self.sm))
         self.sm.append_scene("game", GameScene(self.sm))
+        self.sm.append_scene("world_select", WorldSelectScene(self.sm))
         self.sm.set_current_scene("title")
 
     def run(self):
