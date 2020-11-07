@@ -15,11 +15,32 @@ KEY_REPEAT_DELAY = 125
 KEY_REPEAT_INTERVAL = 125
 
 
+class AssetPathGetter:
+    def __init__(self, root_dir_path, font_dir_name, img_dir_name,
+                 saves_dir_name):
+        self.asset_dir = Path(root_dir_path)
+        self.font_dir_name = font_dir_name
+        self.img_dir_name = img_dir_name
+        self.saves_dir_name = saves_dir_name
+
+    def font_path(self, filename) -> pathlib.Path:
+        return self.asset_dir / self.font_dir_name / filename
+
+    def img_path(self, filename) -> pathlib.Path:
+        return self.asset_dir / self.img_dir_name / filename
+
+    def saved_assets_path(self, filename):
+        return self.asset_dir / self.saves_dir_name / filename
+
+
+assets_path = AssetPathGetter(
+    MAIN_PRG_DIR / "assets", "fonts", "imgs", "saves")
+
+
 class SceneManager:
-    def __init__(self, screen: pygame.Surface, assets_path, game_runner):
+    def __init__(self, screen: pygame.Surface, game):
         self.screen = screen
-        self.assets_path = assets_path
-        self.game_runnner = game_runner
+        self.game = game
         self.scene_list = {}
         self.current_scene = None
 
@@ -76,10 +97,10 @@ class TitleScene(Scene):
     def render(self):
         self.sm.screen.fill(BLACK)
         font = pygame.font.Font(
-            str(self.sm.assets_path.font_path("misaki_gothic_2nd.ttf")), 48)
+            str(assets_path.font_path("misaki_gothic_2nd.ttf")), 48)
         title_text = font.render(GAME_TITLE, True, WHITE)
         font = pygame.font.Font(
-            str(self.sm.assets_path.font_path("misaki_gothic_2nd.ttf")), 32)
+            str(assets_path.font_path("misaki_gothic_2nd.ttf")), 32)
         title_pos = (
             text_pos_to_center(
                 self.sm.screen.get_size(), title_text.get_size(), 1, 0.25))
@@ -117,6 +138,8 @@ class GameScene(Scene):
         self.minimap_surface = pygame.Surface(
             (self.MAP_WIDTH, self.MAP_HEIGHT))
 
+        self.button = ButtonSprite(assets_path.img_path("button.png"))
+
     def handle_event(self, event):
         if event.type == pygame.KEYDOWN:
             if pygame.key.get_pressed()[pygame.K_UP]:
@@ -148,22 +171,25 @@ class GameScene(Scene):
                              self.MAP_VIEWER_HEIGHT))
         self.sm.screen.fill(
             (144, 78, 144), (0, SCRN_HEIGHT - 139, 768, 139))
+        self.sm.screen.blit(self.button.sheet.image_by_cell(
+            1, 1), (0, SCRN_HEIGHT - 139))
         pygame.display.update()
 
     def render_terrain(self, terrain_map):
-        sprite = SpriteSheet(self.sm.assets_path.img_path("skyeyebg.png"))
+        sprite = SpriteSheet(assets_path.img_path(
+            "skyeyebg.png"), 1, 1, 1, 1)
         for z in range(len(terrain_map)):
             for y in range(len(terrain_map[0])):
                 for x in range(len(terrain_map[0][0])):
                     if terrain_map[z][y][x] == 1:
                         self.map_surface.blit(
-                            sprite.get_image(0, 0, 16, 16), (16*x, 16*y))
+                            sprite.image_by_area(0, 0, 16, 16), (16*x, 16*y))
                     elif terrain_map[z][y][x] == 2:
                         self.map_surface.blit(
-                            sprite.get_image(16, 0, 16, 16), (16*x, 16*y))
+                            sprite.image_by_area(16, 0, 16, 16), (16*x, 16*y))
                     elif terrain_map[z][y][x] == 3:
                         self.map_surface.blit(
-                            sprite.get_image(32, 0, 16, 16), (16*x, 16*y))
+                            sprite.image_by_area(32, 0, 16, 16), (16*x, 16*y))
 
     def render_minimap(self, terrain_map):
         for z in range(len(terrain_map)):
@@ -186,7 +212,7 @@ class GameScene(Scene):
 class WorldSelectScene(Scene):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.wm = self.sm.game_runnner.world_manager
+        self.wm = self.sm.game.world_manager
         self.menu_items = ["P", ]
         self.menu_item_num = len(self.menu_items)
         self.menu_select_num = 0
@@ -215,9 +241,9 @@ class WorldSelectScene(Scene):
     def render(self):
         self.sm.screen.fill(BLACK)
         font = pygame.font.Font(
-            str(self.sm.assets_path.font_path("misaki_gothic_2nd.ttf")), 24)
+            str(assets_path.font_path("misaki_gothic_2nd.ttf")), 24)
         world_preview_frame_img = pygame.image.load(
-            str(self.sm.assets_path.img_path("world_picture_frame.png"))
+            str(assets_path.img_path("world_picture_frame.png"))
         ).convert_alpha()
         MENU_ITEM_WIDTH = 496
         MENU_ITEM_HEIGHT = 64
@@ -237,24 +263,6 @@ class WorldSelectScene(Scene):
         pygame.display.update()
 
 
-class AssetPathGetter:
-    def __init__(self, root_dir_path, font_dir_name, img_dir_name,
-                 saves_dir_name):
-        self.asset_dir = Path(root_dir_path)
-        self.font_dir_name = font_dir_name
-        self.img_dir_name = img_dir_name
-        self.saves_dir_name = saves_dir_name
-
-    def font_path(self, filename) -> pathlib.Path:
-        return self.asset_dir / self.font_dir_name / filename
-
-    def img_path(self, filename) -> pathlib.Path:
-        return self.asset_dir / self.img_dir_name / filename
-
-    def saved_assets_path(self, filename):
-        return self.asset_dir / self.saves_dir_name / filename
-
-
 class WorldDataManager:
     def __init__(self, saves_dir_path):
         self.saves_dir = Path(saves_dir_path)
@@ -267,22 +275,58 @@ class WorldDataManager:
 
 
 class SpriteSheet:
-    def __init__(self, filename):
+    def __init__(self, filename, row_num: int, column_num: int,
+                 cell_width: int, cell_height: int):
         self.sheet = pygame.image.load(str(filename)).convert_alpha()
+        self.row_num = row_num
+        self.column_num = column_num
+        self.cell_width = cell_width
+        self.cell_height = cell_height
+        self.current_row = 0
+        self.current_column = 0
+        self.cell_anims = {"animation_name": ((0, 0), (0, 0))}
 
-    def get_image(self, x, y, width, height) -> pygame.Surface:
+    def set_current_cell(self, row, column):
+        self.current_row = row
+        self.current_column = column
+
+    def define_new_cell_anim(self, new_animation_name):
+        self.cell_anims[new_animation_name] = []
+
+    def append_cell_anim(self, animation_name, row, colmun):
+        self.cell_anims[animation_name].append([row, colmun])
+
+    def animation_cell(self, animation_name, start, end):
+        yield self.cell_anims[animation_name][start:end]
+
+    def image_by_area(self, x, y, width, height) -> pygame.Surface:
         image = pygame.Surface((width, height))
         image.blit(self.sheet, (0, 0), (x, y, width, height))
         return image
 
+    def image_by_cell(self, row, column) -> pygame.Surface:
+        image = pygame.Surface((self.cell_width, self.cell_height))
+        image.blit(self.sheet, (0, 0),
+                   (self.cell_width * (column - 1),
+                    self.cell_height * (row - 1),
+                    self.cell_width, self.cell_height))
+        return image
 
-class PlayerSprite(pygame.sprite.Sprite):
-    def __init__(self, *groups) -> None:
-        super().__init__(*groups)
-        self.spritesheet = SpriteSheet()
-        # self.image =
+    def image_by_current(self) -> pygame.Surface:
+        return self.image_by_cell(self.current_row, self.current_column)
 
-    def update(self, *args, **kwargs) -> None:
+
+class Sprite(pygame.sprite.Sprite):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+
+class ButtonSprite(pygame.sprite.Sprite):
+    def __init__(self, sprite_sheet_img_path, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.sheet = SpriteSheet(sprite_sheet_img_path, 1, 2, 48, 48)
+
+    def update(self, *args, **kwargs):
         pass
 
 
@@ -348,10 +392,8 @@ class Game:
         pygame.display.set_caption(GAME_TITLE)
         self.screen = pygame.display.set_mode(SCRN_SIZE)
         self.world_manager = WorldDataManager(MAIN_PRG_DIR / "saves")
-        self.assets_path = AssetPathGetter(
-            MAIN_PRG_DIR / "assets", "fonts", "imgs", "saves")
         # sm means "screen manager"
-        self.sm = SceneManager(self.screen, self.assets_path, self)
+        self.sm = SceneManager(self.screen, self)
         self.sm.append_scene("title", TitleScene(self.sm))
         self.sm.append_scene("game", GameScene(self.sm))
         self.sm.append_scene("world_select", WorldSelectScene(self.sm))
