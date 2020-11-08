@@ -62,8 +62,7 @@ class Scene:
         pass
 
     def render(self):
-        self.sm.screen.fill(BLACK)
-        pygame.display.update()
+        pass
 
 
 class TitleScene(Scene):
@@ -113,7 +112,6 @@ class TitleScene(Scene):
             self.sm.screen.blit(
                 menu_cursor,
                 (title_pos[0] * 0.75, title_pos[1] * (self.menu_select_num+3)))
-        pygame.display.update()
 
 
 class GameScene(Scene):
@@ -138,7 +136,7 @@ class GameScene(Scene):
         self.minimap_surface = pygame.Surface(
             (self.MAP_WIDTH, self.MAP_HEIGHT))
 
-        self.button = ButtonSprite(assets_path.img_path("button.png"))
+        self.button = ButtonSprite()
 
     def handle_event(self, event):
         if event.type == pygame.KEYDOWN:
@@ -173,7 +171,6 @@ class GameScene(Scene):
             (144, 78, 144), (0, SCRN_HEIGHT - 139, 768, 139))
         self.sm.screen.blit(self.button.sheet.image_by_cell(
             1, 1), (0, SCRN_HEIGHT - 139))
-        pygame.display.update()
 
     def render_terrain(self, terrain_map):
         sprite = SpriteSheet(assets_path.img_path(
@@ -260,7 +257,6 @@ class WorldSelectScene(Scene):
              - text.get_size()[0] * 0.5,
              48 + MENU_ITEM_HEIGHT * 0.5
              - text.get_size()[1] * 0.5))
-        pygame.display.update()
 
 
 class WorldDataManager:
@@ -322,9 +318,10 @@ class Sprite(pygame.sprite.Sprite):
 
 
 class ButtonSprite(pygame.sprite.Sprite):
-    def __init__(self, sprite_sheet_img_path, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.sheet = SpriteSheet(sprite_sheet_img_path, 1, 2, 48, 48)
+        self.sheet = SpriteSheet(
+            assets_path.img_path("button.png"), 1, 2, 48, 48)
 
     def update(self, *args, **kwargs):
         pass
@@ -400,13 +397,16 @@ class Game:
         self.sm.set_current_scene("title")
 
     def run(self):
+        clock = pygame.time.Clock()
         while True:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     sys.exit()
                 self.sm.current_scene.handle_event(event)
-                self.sm.current_scene.update()
-                self.sm.current_scene.render()
+            self.sm.current_scene.update()
+            self.sm.current_scene.render()
+            pygame.display.update()
+            clock.tick(60)
 
 
 def text_pos_to_center(screen_size, text_size,
