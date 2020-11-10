@@ -1,6 +1,7 @@
 import pathlib
 from pathlib import Path
 import sys
+from typing import Tuple
 
 import pygame
 
@@ -135,7 +136,6 @@ class GameScene(Scene):
             (self.MAP_WIDTH*16, self.MAP_HEIGHT*16)).convert_alpha()
         self.minimap_surface = pygame.Surface(
             (self.MAP_WIDTH, self.MAP_HEIGHT))
-
         self.button = ButtonSprite()
 
     def handle_event(self, event):
@@ -153,6 +153,10 @@ class GameScene(Scene):
             # self.map_surface.scroll(self.scroll_vx, self.scroll_vy)
             self.scroll_vx = 0
             self.scroll_vy = 0
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            if event.button == 1:
+                if self.button.rect.collidepoint(event.pos):
+                    self.button.is_pressed = not self.button.is_pressed
 
     def render(self):
         self.sm.screen.fill(BLACK)
@@ -169,12 +173,12 @@ class GameScene(Scene):
                              self.MAP_VIEWER_HEIGHT))
         self.sm.screen.fill(
             (144, 78, 144), (0, SCRN_HEIGHT - 139, 768, 139))
-        self.sm.screen.blit(self.button.sheet.image_by_cell(
-            1, 1), (0, SCRN_HEIGHT - 139))
+        self.button.set_image_with_icon(1, 1)
+        self.sm.screen.blit(self.button.image, (0, SCRN_HEIGHT - 139))
 
     def render_terrain(self, terrain_map):
         sprite = SpriteSheet(assets_path.img_path(
-            "skyeyebg.png"), 1, 1, 1, 1)
+            "skyeyebg.png"), 1, 1, 1, 1, BLACK)
         for z in range(len(terrain_map)):
             for y in range(len(terrain_map[0])):
                 for x in range(len(terrain_map[0][0])):
@@ -272,8 +276,10 @@ class WorldDataManager:
 
 class SpriteSheet:
     def __init__(self, filename, row_num: int, column_num: int,
-                 cell_width: int, cell_height: int):
+                 cell_width: int, cell_height: int, colorkey: Tuple):
         self.sheet = pygame.image.load(str(filename)).convert_alpha()
+        self.colorkey = colorkey
+        # self.sheet.set_colorkey(self.colorkey)
         self.row_num = row_num
         self.column_num = column_num
         self.cell_width = cell_width
@@ -298,14 +304,17 @@ class SpriteSheet:
     def image_by_area(self, x, y, width, height) -> pygame.Surface:
         image = pygame.Surface((width, height))
         image.blit(self.sheet, (0, 0), (x, y, width, height))
+        image.set_colorkey(self.colorkey)
         return image
 
     def image_by_cell(self, row, column) -> pygame.Surface:
-        image = pygame.Surface((self.cell_width, self.cell_height))
+        image = pygame.Surface(
+            (self.cell_width, self.cell_height))
         image.blit(self.sheet, (0, 0),
                    (self.cell_width * (column - 1),
                     self.cell_height * (row - 1),
                     self.cell_width, self.cell_height))
+        image.set_colorkey(self.colorkey)
         return image
 
     def image_by_current(self) -> pygame.Surface:
@@ -320,11 +329,38 @@ class Sprite(pygame.sprite.Sprite):
 class ButtonSprite(pygame.sprite.Sprite):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.sheet = SpriteSheet(
-            assets_path.img_path("button.png"), 1, 2, 48, 48)
+        self.width = 48
+        self.height = 48
+        # This value is for moving y of the icon when button pressing.
+        self.y_pressing = 4
+        self.x = 0
+        self.y = 0
+        self.rect = pygame.Rect(0, 0, self.width, self.height)
+        self.btn_sheet = SpriteSheet(assets_path.img_path(
+            "button.png"), 1, 2, self.width, self.height, BLACK)
+        self.icon_sheet = SpriteSheet(assets_path.img_path(
+            "btn_icon.png"), 1, 3, self.width, self.height, BLACK)
+        self.is_pressed = False
 
     def update(self, *args, **kwargs):
         pass
+
+    def set_image_with_icon(self, icon_sheet_row,
+                            icon_sheet_column) -> pygame.Surface:
+        if self.is_pressed:
+            btn_row = 1
+            btn_column = 2
+        else:
+            btn_row = 1
+            btn_column = 1
+        btn_surface = pygame.Surface(
+            (self.width, self.height))
+        btn_surface.set_colorkey(self.btn_sheet.colorkey)
+        btn_surface.blit(self.btn_sheet.image_by_cell(
+            btn_row, btn_column), (0, 0))
+        btn_surface.blit(self.icon_sheet.image_by_cell(
+            icon_sheet_row, icon_sheet_column), (0, 0))
+        self.image = btn_surface
 
 
 class Tile:
