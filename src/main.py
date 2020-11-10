@@ -136,7 +136,11 @@ class GameScene(Scene):
             (self.MAP_WIDTH*16, self.MAP_HEIGHT*16)).convert_alpha()
         self.minimap_surface = pygame.Surface(
             (self.MAP_WIDTH, self.MAP_HEIGHT))
-        self.button = ButtonSprite()
+        self.water_btn = ButtonSprite(16, SCRN_HEIGHT - 139 + 16)
+        self.dirt_btn = ButtonSprite(80, SCRN_HEIGHT - 139 + 16)
+        self.mount_btn = ButtonSprite(144, SCRN_HEIGHT - 139 + 16)
+        self.btn_group = pygame.sprite.Group()
+        self.btn_group.add(self.water_btn, self.dirt_btn, self.mount_btn)
 
     def handle_event(self, event):
         if event.type == pygame.KEYDOWN:
@@ -155,8 +159,9 @@ class GameScene(Scene):
             self.scroll_vy = 0
         if event.type == pygame.MOUSEBUTTONDOWN:
             if event.button == 1:
-                if self.button.rect.collidepoint(event.pos):
-                    self.button.is_pressed = not self.button.is_pressed
+                for btn_sprite in iter(self.btn_group):
+                    if btn_sprite.rect.collidepoint(event.pos):
+                        btn_sprite.is_pressed = not btn_sprite.is_pressed
 
     def render(self):
         self.sm.screen.fill(BLACK)
@@ -173,8 +178,10 @@ class GameScene(Scene):
                              self.MAP_VIEWER_HEIGHT))
         self.sm.screen.fill(
             (144, 78, 144), (0, SCRN_HEIGHT - 139, 768, 139))
-        self.button.set_image_with_icon(1, 1)
-        self.sm.screen.blit(self.button.image, (0, SCRN_HEIGHT - 139))
+        self.water_btn.set_image_with_icon(1, 2)
+        self.dirt_btn.set_image_with_icon(1, 1)
+        self.mount_btn.set_image_with_icon(1, 3)
+        self.btn_group.draw(self.sm.screen)
 
     def render_terrain(self, terrain_map):
         sprite = SpriteSheet(assets_path.img_path(
@@ -327,19 +334,16 @@ class Sprite(pygame.sprite.Sprite):
 
 
 class ButtonSprite(pygame.sprite.Sprite):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.width = 48
-        self.height = 48
+    def __init__(self, x, y, *args, **kwargs):
+        super(ButtonSprite, self).__init__(*args, **kwargs)
+        self.rect = pygame.Rect(x, y, 48, 48)
         # This value is for moving y of the icon when button pressing.
-        self.y_pressing = 4
-        self.x = 0
-        self.y = 0
-        self.rect = pygame.Rect(0, 0, self.width, self.height)
+        self.y_pressing = 2
+        # self.rect = pygame.Rect(x, y, self.width, self.height)
         self.btn_sheet = SpriteSheet(assets_path.img_path(
-            "button.png"), 1, 2, self.width, self.height, BLACK)
+            "button.png"), 1, 2, self.rect.width, self.rect.height, BLACK)
         self.icon_sheet = SpriteSheet(assets_path.img_path(
-            "btn_icon.png"), 1, 3, self.width, self.height, BLACK)
+            "btn_icon.png"), 1, 3, self.rect.width, self.rect.height, BLACK)
         self.is_pressed = False
 
     def update(self, *args, **kwargs):
@@ -350,16 +354,18 @@ class ButtonSprite(pygame.sprite.Sprite):
         if self.is_pressed:
             btn_row = 1
             btn_column = 2
+            icon_y = self.y_pressing
         else:
             btn_row = 1
             btn_column = 1
+            icon_y = 0
         btn_surface = pygame.Surface(
-            (self.width, self.height))
+            (self.rect.width, self.rect.height))
         btn_surface.set_colorkey(self.btn_sheet.colorkey)
         btn_surface.blit(self.btn_sheet.image_by_cell(
             btn_row, btn_column), (0, 0))
         btn_surface.blit(self.icon_sheet.image_by_cell(
-            icon_sheet_row, icon_sheet_column), (0, 0))
+            icon_sheet_row, icon_sheet_column), (0, icon_y))
         self.image = btn_surface
 
 
