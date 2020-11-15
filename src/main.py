@@ -118,10 +118,12 @@ class TitleScene(Scene):
 class GameScene(Scene):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.prepared_terrain_map = False
         self.terrain = Terrain()
+        # self.TILE_SIZE = 16
         self.MAP_HEIGHT = 64
         self.MAP_WIDTH = 64
+        self.MAP_VIEWER_X = 16
+        self.MAP_VIEWER_Y = 16
         self.MAP_VIEWER_HEIGHT = 480
         self.MAP_VIEWER_WIDTH = 608
         self.scroll_x = 0
@@ -136,9 +138,9 @@ class GameScene(Scene):
             (self.MAP_WIDTH*16, self.MAP_HEIGHT*16)).convert_alpha()
         self.minimap_surface = pygame.Surface(
             (self.MAP_WIDTH, self.MAP_HEIGHT))
-        self.water_btn = ButtonSprite(16, SCRN_HEIGHT - 139 + 16)
-        self.dirt_btn = ButtonSprite(80, SCRN_HEIGHT - 139 + 16)
-        self.mount_btn = ButtonSprite(144, SCRN_HEIGHT - 139 + 16)
+        self.water_btn = ButtonSprite("Water", 16, SCRN_HEIGHT - 139 + 16)
+        self.dirt_btn = ButtonSprite("Dirt", 80, SCRN_HEIGHT - 139 + 16)
+        self.mount_btn = ButtonSprite("Mount", 144, SCRN_HEIGHT - 139 + 16)
         self.btn_group = pygame.sprite.Group()
         self.btn_group.add(self.water_btn, self.dirt_btn, self.mount_btn)
 
@@ -162,6 +164,34 @@ class GameScene(Scene):
                 for btn_sprite in iter(self.btn_group):
                     if btn_sprite.rect.collidepoint(event.pos):
                         btn_sprite.is_pressed = not btn_sprite.is_pressed
+                    if (self.MAP_VIEWER_X <= event.pos[0] <=
+                            self.MAP_VIEWER_WIDTH and
+                        self.MAP_VIEWER_Y <= event.pos[1] <=
+                            self.MAP_VIEWER_HEIGHT):
+                        if btn_sprite.id == "Water":
+                            if self.water_btn.is_pressed:
+                                self.rewrite_tile_with_mouse(
+                                    2, None, event.pos)
+                                self.rewrite_tile_with_mouse(
+                                    0, "Water", event.pos)
+                        if btn_sprite.id == "Dirt":
+                            if self.dirt_btn.is_pressed:
+                                self.rewrite_tile_with_mouse(
+                                    2, "Dirt", event.pos)
+                        # print((
+                        #     self.MAP_VIEWER_X+event.pos[0])//16, (
+                        #     self.MAP_VIEWER_Y+event.pos[1])//16)
+                        # print(self.terrain.map[2][(
+                        #     self.MAP_VIEWER_X+event.pos[0])//16][(self.MAP_VIEWER_Y+event.pos[1])//16])
+                    else:
+                        print("clicked none")
+                    print("Mouse:", event.pos)
+
+    def rewrite_tile_with_mouse(self, layer_id, tile_type, mouse_pos):
+        tile_x = (self.scroll_x+mouse_pos[0]-self.MAP_VIEWER_X)//16
+        tile_y = (self.scroll_y+mouse_pos[1]-self.MAP_VIEWER_Y)//16
+        self.terrain.rewrite_map_tile(layer_id, tile_x, tile_y, tile_type)
+        # print(self.terrain.map)
 
     def render(self):
         self.sm.screen.fill(BLACK)
@@ -171,7 +201,7 @@ class GameScene(Scene):
                             (16 + self.MAP_VIEWER_WIDTH + 8, 16),
                             (0, 0, self.MAP_WIDTH, self.MAP_HEIGHT))
         self.sm.screen.blit(self.map_surface,
-                            (16, 16),
+                            (self.MAP_VIEWER_X, self.MAP_VIEWER_Y),
                             (0+self.scroll_x,
                              0+self.scroll_y,
                              self.MAP_VIEWER_WIDTH,
@@ -185,7 +215,7 @@ class GameScene(Scene):
 
     def render_terrain(self, terrain_map):
         sprite = SpriteSheet(assets_path.img_path(
-            "skyeyebg.png"), 1, 1, 1, 1, BLACK)
+            "skyeyebg.png"), 1, 1, 16, 16, BLACK)
         for z in range(len(terrain_map)):
             for y in range(len(terrain_map[0])):
                 for x in range(len(terrain_map[0][0])):
@@ -197,7 +227,7 @@ class GameScene(Scene):
                             sprite.image_by_area(16, 0, 16, 16), (16*x, 16*y))
                     elif terrain_map[z][y][x] == 3:
                         self.map_surface.blit(
-                            sprite.image_by_area(32, 0, 16, 16), (16*x, 16*y))
+                            sprite.image_by_area(0, 32, 16, 16), (16*x, 16*y))
 
     def render_minimap(self, terrain_map):
         for z in range(len(terrain_map)):
@@ -334,8 +364,9 @@ class Sprite(pygame.sprite.Sprite):
 
 
 class ButtonSprite(pygame.sprite.Sprite):
-    def __init__(self, x, y, *args, **kwargs):
+    def __init__(self, id, x, y, *args, **kwargs):
         super(ButtonSprite, self).__init__(*args, **kwargs)
+        self.id = id
         self.rect = pygame.Rect(x, y, 48, 48)
         # This value is for moving y of the icon when button pressing.
         self.y_pressing = 2
