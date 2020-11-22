@@ -132,17 +132,31 @@ class GameScene(Scene):
         self.scroll_vy = 0
         self.terrain.reset_map(4, self.MAP_HEIGHT, self.MAP_WIDTH)
         self.terrain.fill_map(2, 0, 64, 0, 64, "Glass")
-        self.terrain.rewrite_map_tile(2, 44, 44, None)
-        self.terrain.rewrite_map_tile(0, 44, 44, "Water")
         self.map_surface = pygame.Surface(
             (self.MAP_WIDTH*16, self.MAP_HEIGHT*16)).convert_alpha()
         self.minimap_surface = pygame.Surface(
             (self.MAP_WIDTH, self.MAP_HEIGHT))
         self.water_btn = ButtonSprite("Water", 16, SCRN_HEIGHT - 139 + 16)
-        self.dirt_btn = ButtonSprite("Dirt", 80, SCRN_HEIGHT - 139 + 16)
-        self.mount_btn = ButtonSprite("Mount", 144, SCRN_HEIGHT - 139 + 16)
-        self.btn_group = pygame.sprite.Group()
-        self.btn_group.add(self.water_btn, self.dirt_btn, self.mount_btn)
+        btn_size = self.water_btn.rect.size
+        self.dirt_btn = ButtonSprite(
+            "Dirt", 16 + btn_size[0] + 16, SCRN_HEIGHT - 139 + 16)
+        self.mount_btn = ButtonSprite(
+            "Mount", 16 + btn_size[0]*2 + 16*2, SCRN_HEIGHT - 139 + 16)
+        self.tree_btn = ButtonSprite(
+            "Tree", 16 + btn_size[0]*3 + 16*3, SCRN_HEIGHT - 139 + 16)
+        self.human_btn = ButtonSprite(
+            "Human", 16 + btn_size[0]*4 + 16*4, SCRN_HEIGHT - 139 + 16)
+        self.save_btn = ButtonSprite(
+            "Save", 16, SCRN_HEIGHT - 139 + 16 + btn_size[1] + 16)
+        self.load_btn = ButtonSprite(
+            "Load", 16 + btn_size[0] + 16,
+            SCRN_HEIGHT - 139 + 16 + btn_size[1] + 16)
+        self.btn_group = pygame.sprite.RenderUpdates()
+        self.btn_group.add(self.water_btn, self.dirt_btn,
+                           self.mount_btn, self.tree_btn,
+                           self.human_btn,
+                           self.save_btn, self.load_btn)
+        self.mob_group = pygame.sprite.Group()
 
     def handle_event(self, event):
         if event.type == pygame.KEYDOWN:
@@ -164,28 +178,35 @@ class GameScene(Scene):
                 for btn_sprite in iter(self.btn_group):
                     if btn_sprite.rect.collidepoint(event.pos):
                         btn_sprite.is_pressed = not btn_sprite.is_pressed
+                        for other_btn in iter(self.btn_group):
+                            if other_btn.id != btn_sprite.id:
+                                other_btn.is_pressed = False
                     if (self.MAP_VIEWER_X <= event.pos[0] <=
-                            self.MAP_VIEWER_WIDTH and
+                            (self.MAP_VIEWER_WIDTH + 16) and
                         self.MAP_VIEWER_Y <= event.pos[1] <=
-                            self.MAP_VIEWER_HEIGHT):
-                        if btn_sprite.id == "Water":
-                            if self.water_btn.is_pressed:
+                            (self.MAP_VIEWER_HEIGHT + 16)):
+                        if btn_sprite.is_pressed:
+                            if btn_sprite.id == "Water":
                                 self.rewrite_tile_with_mouse(
                                     2, None, event.pos)
                                 self.rewrite_tile_with_mouse(
                                     0, "Water", event.pos)
-                        if btn_sprite.id == "Dirt":
-                            if self.dirt_btn.is_pressed:
+                            if btn_sprite.id == "Dirt":
                                 self.rewrite_tile_with_mouse(
                                     2, "Dirt", event.pos)
-                        # print((
-                        #     self.MAP_VIEWER_X+event.pos[0])//16, (
-                        #     self.MAP_VIEWER_Y+event.pos[1])//16)
-                        # print(self.terrain.map[2][(
-                        #     self.MAP_VIEWER_X+event.pos[0])//16][(self.MAP_VIEWER_Y+event.pos[1])//16])
+                            if btn_sprite.id == "Mount":
+                                self.rewrite_tile_with_mouse(
+                                    3, "Mount", event.pos)
+                            if btn_sprite.id == "Tree":
+                                self.rewrite_tile_with_mouse(
+                                    3, "Tree", event.pos)
+                            if btn_sprite.id == "Human":
+                                self.mob_group.add(HumanSprite())
+                                pass
                     else:
                         print("clicked none")
-                    print("Mouse:", event.pos)
+                    # print("Mouse:", event.pos)
+                    # print("Map:", self.terrain.map[3])
 
     def rewrite_tile_with_mouse(self, layer_id, tile_type, mouse_pos):
         tile_x = (self.scroll_x+mouse_pos[0]-self.MAP_VIEWER_X)//16
@@ -211,7 +232,13 @@ class GameScene(Scene):
         self.water_btn.set_image_with_icon(1, 2)
         self.dirt_btn.set_image_with_icon(1, 1)
         self.mount_btn.set_image_with_icon(1, 3)
+        self.human_btn.set_image_with_icon(1, 4)
+        self.tree_btn.set_image_with_icon(2, 1)
+        self.save_btn.set_image_with_icon(2, 2)
+        self.load_btn.set_image_with_icon(2, 3)
         self.btn_group.draw(self.sm.screen)
+        self.mob_group.update()
+        self.mob_group.draw(self.sm.screen)
 
     def render_terrain(self, terrain_map):
         sprite = SpriteSheet(assets_path.img_path(
@@ -221,13 +248,19 @@ class GameScene(Scene):
                 for x in range(len(terrain_map[0][0])):
                     if terrain_map[z][y][x] == 1:
                         self.map_surface.blit(
-                            sprite.image_by_area(0, 0, 16, 16), (16*x, 16*y))
+                            sprite.image_by_cell(1, 1), (16*x, 16*y))
                     elif terrain_map[z][y][x] == 2:
                         self.map_surface.blit(
-                            sprite.image_by_area(16, 0, 16, 16), (16*x, 16*y))
+                            sprite.image_by_cell(1, 2), (16*x, 16*y))
                     elif terrain_map[z][y][x] == 3:
                         self.map_surface.blit(
-                            sprite.image_by_area(0, 32, 16, 16), (16*x, 16*y))
+                            sprite.image_by_cell(3, 1), (16*x, 16*y))
+                    elif terrain_map[z][y][x] == 4:
+                        self.map_surface.blit(
+                            sprite.image_by_cell(2, 7), (16*x, 16*y))
+                    elif terrain_map[z][y][x] == 5:
+                        self.map_surface.blit(
+                            sprite.image_by_cell(1, 5), (16*x, 16*y))
 
     def render_minimap(self, terrain_map):
         for z in range(len(terrain_map)):
@@ -243,7 +276,7 @@ class GameScene(Scene):
                     if terrain_map[2][y][x] != 0:
                         minimap_tile_color = (255, 255, 0)
                     if terrain_map[3][y][x] != 0:
-                        minimap_tile_color = (255, 255, 125)
+                        minimap_tile_color = (78, 255, 125)
                     self.minimap_surface.fill(minimap_tile_color, (x, y, 1, 1))
 
 
@@ -358,14 +391,23 @@ class SpriteSheet:
         return self.image_by_cell(self.current_row, self.current_column)
 
 
-class Sprite(pygame.sprite.Sprite):
+class HumanSprite(pygame.sprite.Sprite):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.y = 0
+        self.x = 0
+        self.rect = pygame.Rect(self.x, self.y, 6, 8)
+        self.sheet = SpriteSheet(assets_path.img_path(
+            "human.png"), 4, 4, self.rect.width, self.rect.height, BLACK)
+        self.image = self.sheet.image_by_cell(1, 1)
+
+    def update(self):
+        pass
 
 
 class ButtonSprite(pygame.sprite.Sprite):
     def __init__(self, id, x, y, *args, **kwargs):
-        super(ButtonSprite, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.id = id
         self.rect = pygame.Rect(x, y, 48, 48)
         # This value is for moving y of the icon when button pressing.
@@ -434,8 +476,8 @@ def get_swap_dict(dictionary):
 
 class Terrain:
     def __init__(self):
-        self.tile_img_assign = {"Glass": "", "Dirt": "", "Water": ""}
-        self.tile_id_assign = {None: 0, "Glass": 1, "Dirt": 2, "Water": 3}
+        self.tile_id_assign = {None: 0, "Glass": 1,
+                               "Dirt": 2, "Water": 3, "Tree": 4, "Mount": 5}
         self.tile_type_from_id = get_swap_dict(self.tile_id_assign)
         self.map = [[[]]]
 
