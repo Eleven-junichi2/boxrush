@@ -157,62 +157,85 @@ class GameScene(Scene):
                            self.human_btn,
                            self.save_btn, self.load_btn)
         self.mob_group = pygame.sprite.Group()
+        self.mouse_rel_history = [(0, 0)]
 
     def handle_event(self, event):
         if event.type == pygame.KEYDOWN:
             if pygame.key.get_pressed()[pygame.K_UP]:
-                self.scroll_vy = -5
+                self.scroll_vy = -9
             if pygame.key.get_pressed()[pygame.K_DOWN]:
-                self.scroll_vy = 5
+                self.scroll_vy = 9
             if pygame.key.get_pressed()[pygame.K_RIGHT]:
-                self.scroll_vx = 5
+                self.scroll_vx = 9
             if pygame.key.get_pressed()[pygame.K_LEFT]:
-                self.scroll_vx = -5
-            self.scroll_x += self.scroll_vx
-            self.scroll_y += self.scroll_vy
-            # self.map_surface.scroll(self.scroll_vx, self.scroll_vy)
-            self.scroll_vx = 0
-            self.scroll_vy = 0
-        if event.type == pygame.MOUSEBUTTONDOWN:
-            if event.button == 1:
-                for btn_sprite in iter(self.btn_group):
-                    if btn_sprite.rect.collidepoint(event.pos):
-                        btn_sprite.is_pressed = not btn_sprite.is_pressed
-                        for other_btn in iter(self.btn_group):
-                            if other_btn.id != btn_sprite.id:
-                                other_btn.is_pressed = False
-                    if (self.MAP_VIEWER_X <= event.pos[0] <=
-                            (self.MAP_VIEWER_WIDTH + 16) and
-                        self.MAP_VIEWER_Y <= event.pos[1] <=
-                            (self.MAP_VIEWER_HEIGHT + 16)):
-                        if btn_sprite.is_pressed:
-                            if btn_sprite.id == "Water":
-                                self.rewrite_tile_with_mouse(
-                                    2, None, event.pos)
-                                self.rewrite_tile_with_mouse(
-                                    0, "Water", event.pos)
-                            if btn_sprite.id == "Dirt":
-                                self.rewrite_tile_with_mouse(
-                                    2, "Dirt", event.pos)
-                            if btn_sprite.id == "Mount":
-                                self.rewrite_tile_with_mouse(
-                                    3, "Mount", event.pos)
-                            if btn_sprite.id == "Tree":
-                                self.rewrite_tile_with_mouse(
-                                    3, "Tree", event.pos)
-                            if btn_sprite.id == "Human":
-                                self.mob_group.add(HumanSprite())
-                                pass
-                    else:
-                        print("clicked none")
-                    # print("Mouse:", event.pos)
-                    # print("Map:", self.terrain.map[3])
+                self.scroll_vx = -9
+        if pygame.mouse.get_pressed()[0]:
+            print(pygame.mouse.get_pressed())
+            is_btn_pressing = False
+            for btn_sprite in iter(self.btn_group):
+                if btn_sprite.is_pressed:
+                    is_btn_pressing = True
+                    break
+            print(is_btn_pressing)
+            if not is_btn_pressing and self.is_pos_on_map(
+                    pygame.mouse.get_pos()):
+                mouse_rel = pygame.mouse.get_rel()
+                self.mouse_rel_history.append(mouse_rel)
+                self.scroll_vx = -self.mouse_rel_history[1][0]
+                self.scroll_vy = -self.mouse_rel_history[1][1]
+                print("rel:", mouse_rel)
+                if 2 < len(self.mouse_rel_history):
+                    self.mouse_rel_history.pop(0)
+            #     if event.type == pygame.MOUSEMOTION:
+            #         print(f"pos:{event.pos} rel:{event.rel}")
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            for btn_sprite in iter(self.btn_group):
+                if btn_sprite.rect.collidepoint(event.pos):
+                    btn_sprite.is_pressed = not btn_sprite.is_pressed
+                    for other_btn in iter(self.btn_group):
+                        if other_btn.id != btn_sprite.id:
+                            other_btn.is_pressed = False
+                if self.is_pos_on_map(event.pos):
+                    if btn_sprite.is_pressed:
+                        if btn_sprite.id == "Water":
+                            self.rewrite_tile_with_mouse(
+                                2, None, event.pos)
+                            self.rewrite_tile_with_mouse(
+                                0, "Water", event.pos)
+                        if btn_sprite.id == "Dirt":
+                            self.rewrite_tile_with_mouse(
+                                2, "Dirt", event.pos)
+                        if btn_sprite.id == "Mount":
+                            self.rewrite_tile_with_mouse(
+                                3, "Mount", event.pos)
+                        if btn_sprite.id == "Tree":
+                            self.rewrite_tile_with_mouse(
+                                3, "Tree", event.pos)
+                        if btn_sprite.id == "Human":
+                            self.spawn_human_with_mouse(event.pos)
+                            print("spawned")
+        # scroll map
+        self.scroll_x += self.scroll_vx
+        self.scroll_y += self.scroll_vy
+        self.scroll_vx = 0
+        self.scroll_vy = 0
+
+    def is_pos_on_map(self, pos):
+        return (self.MAP_VIEWER_X <= pos[0] <=
+                (self.MAP_VIEWER_WIDTH + 16) and
+                self.MAP_VIEWER_Y <= pos[1] <=
+                (self.MAP_VIEWER_HEIGHT + 16))
+
+    def spawn_human_with_mouse(self, mouse_pos):
+        spawn_x = (self.scroll_x+mouse_pos[0]-self.MAP_VIEWER_X)
+        spawn_y = (self.scroll_y+mouse_pos[1]-self.MAP_VIEWER_Y)
+        human_sprite = HumanSprite(x=spawn_x, y=spawn_y)
+        self.mob_group.add(human_sprite)
 
     def rewrite_tile_with_mouse(self, layer_id, tile_type, mouse_pos):
         tile_x = (self.scroll_x+mouse_pos[0]-self.MAP_VIEWER_X)//16
         tile_y = (self.scroll_y+mouse_pos[1]-self.MAP_VIEWER_Y)//16
         self.terrain.rewrite_map_tile(layer_id, tile_x, tile_y, tile_type)
-        # print(self.terrain.map)
 
     def render(self):
         self.sm.screen.fill(BLACK)
@@ -221,12 +244,6 @@ class GameScene(Scene):
         self.sm.screen.blit(self.minimap_surface,
                             (16 + self.MAP_VIEWER_WIDTH + 8, 16),
                             (0, 0, self.MAP_WIDTH, self.MAP_HEIGHT))
-        self.sm.screen.blit(self.map_surface,
-                            (self.MAP_VIEWER_X, self.MAP_VIEWER_Y),
-                            (0+self.scroll_x,
-                             0+self.scroll_y,
-                             self.MAP_VIEWER_WIDTH,
-                             self.MAP_VIEWER_HEIGHT))
         self.sm.screen.fill(
             (144, 78, 144), (0, SCRN_HEIGHT - 139, 768, 139))
         self.water_btn.set_image_with_icon(1, 2)
@@ -237,8 +254,13 @@ class GameScene(Scene):
         self.save_btn.set_image_with_icon(2, 2)
         self.load_btn.set_image_with_icon(2, 3)
         self.btn_group.draw(self.sm.screen)
-        self.mob_group.update()
-        self.mob_group.draw(self.sm.screen)
+        self.mob_group.draw(self.map_surface)
+        self.sm.screen.blit(self.map_surface,
+                            (self.MAP_VIEWER_X, self.MAP_VIEWER_Y),
+                            (0+self.scroll_x,
+                             0+self.scroll_y,
+                             self.MAP_VIEWER_WIDTH,
+                             self.MAP_VIEWER_HEIGHT))
 
     def render_terrain(self, terrain_map):
         sprite = SpriteSheet(assets_path.img_path(
@@ -392,16 +414,16 @@ class SpriteSheet:
 
 
 class HumanSprite(pygame.sprite.Sprite):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, x, y, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.y = 0
-        self.x = 0
+        self.x = x
+        self.y = y
         self.rect = pygame.Rect(self.x, self.y, 6, 8)
         self.sheet = SpriteSheet(assets_path.img_path(
-            "human.png"), 4, 4, self.rect.width, self.rect.height, BLACK)
+            "human.png"), 4, 4, 6, 8, BLACK)
         self.image = self.sheet.image_by_cell(1, 1)
 
-    def update(self):
+    def update(self, *args, **kwargs):
         pass
 
 
