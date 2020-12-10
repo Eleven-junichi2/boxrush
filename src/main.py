@@ -157,7 +157,7 @@ class GameScene(Scene):
                            self.human_btn,
                            self.save_btn, self.load_btn)
         self.mob_group = pygame.sprite.Group()
-        self.mouse_rel_history = [(0, 0)]
+        self.mouse_pos_history = []
 
     def handle_event(self, event):
         if event.type == pygame.KEYDOWN:
@@ -179,15 +179,19 @@ class GameScene(Scene):
             print(is_btn_pressing)
             if not is_btn_pressing and self.is_pos_on_map(
                     pygame.mouse.get_pos()):
-                mouse_rel = pygame.mouse.get_rel()
-                self.mouse_rel_history.append(mouse_rel)
-                self.scroll_vx = -self.mouse_rel_history[1][0]
-                self.scroll_vy = -self.mouse_rel_history[1][1]
-                print("rel:", mouse_rel)
-                if 2 < len(self.mouse_rel_history):
-                    self.mouse_rel_history.pop(0)
-            #     if event.type == pygame.MOUSEMOTION:
-            #         print(f"pos:{event.pos} rel:{event.rel}")
+                # move map viewer with mouse dragging
+                mouse_pos = pygame.mouse.get_pos()
+                self.mouse_pos_history.append(mouse_pos)
+                if 2 < len(self.mouse_pos_history):
+                    self.scroll_vx = - \
+                        (self.mouse_pos_history[1][0] -
+                         self.mouse_pos_history[0][0])
+                    self.scroll_vy = - \
+                        (self.mouse_pos_history[1][1] -
+                         self.mouse_pos_history[0][1])
+                    self.mouse_pos_history.pop(0)
+        if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+            self.mouse_pos_history.clear()
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             for btn_sprite in iter(self.btn_group):
                 if btn_sprite.rect.collidepoint(event.pos):
