@@ -2,6 +2,8 @@ import pathlib
 from pathlib import Path
 import sys
 from typing import Tuple
+import random
+import math
 
 import pygame
 
@@ -265,6 +267,7 @@ class GameScene(Scene):
                              0+self.scroll_y,
                              self.MAP_VIEWER_WIDTH,
                              self.MAP_VIEWER_HEIGHT))
+        self.mob_group.update()
 
     def render_terrain(self, terrain_map):
         sprite = SpriteSheet(assets_path.img_path(
@@ -422,13 +425,45 @@ class HumanSprite(pygame.sprite.Sprite):
         super().__init__(*args, **kwargs)
         self.x = x
         self.y = y
+        self.dx = 0
+        self.dy = 0
+        self.max_sightrange = 320
+        self.min_sightrange = 0
         self.rect = pygame.Rect(self.x, self.y, 6, 8)
         self.sheet = SpriteSheet(assets_path.img_path(
             "human.png"), 4, 4, 6, 8, BLACK)
         self.image = self.sheet.image_by_cell(1, 1)
 
     def update(self, *args, **kwargs):
-        pass
+        self.random_direction()
+        self.x += self.dx * 2
+        self.y += self.dy * 2
+        self.update_img_pos()
+        result = self.can_see_in_sightrange((100, 100))
+        print(result)
+
+    def random_direction_y(self):
+        self.dy = random.randint(-1, 1)
+
+    def random_direction_x(self):
+        self.dx = random.randint(-1, 1)
+
+    def random_direction(self):
+        self.random_direction_x()
+        self.random_direction_y()
+
+    def update_img_pos(self):
+        self.rect.x = self.x
+        self.rect.y = self.y
+
+    def can_see_in_sightrange(self, obj_be_seen_pos):
+        dist_two_point_x = obj_be_seen_pos[0] - self.x
+        dist_two_point_y = obj_be_seen_pos[1] - self.y
+        dist_two_point = math.sqrt(dist_two_point_x**2 + dist_two_point_y**2)
+        if self.min_sightrange <= dist_two_point <= self.max_sightrange:
+            return True
+        else:
+            return False
 
 
 class ButtonSprite(pygame.sprite.Sprite):
