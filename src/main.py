@@ -172,13 +172,11 @@ class GameScene(Scene):
             if pygame.key.get_pressed()[pygame.K_LEFT]:
                 self.scroll_vx = -9
         if pygame.mouse.get_pressed()[0]:
-            print(pygame.mouse.get_pressed())
             is_btn_pressing = False
             for btn_sprite in iter(self.btn_group):
                 if btn_sprite.is_pressed:
                     is_btn_pressing = True
                     break
-            print(is_btn_pressing)
             if not is_btn_pressing and self.is_pos_on_map(
                     pygame.mouse.get_pos()):
                 # move map viewer with mouse dragging
@@ -219,7 +217,6 @@ class GameScene(Scene):
                                 3, "Tree", event.pos)
                         if btn_sprite.id == "Human":
                             self.spawn_human_with_mouse(event.pos)
-                            print("spawned")
         # scroll map
         self.scroll_x += self.scroll_vx
         self.scroll_y += self.scroll_vy
@@ -268,6 +265,12 @@ class GameScene(Scene):
                              self.MAP_VIEWER_WIDTH,
                              self.MAP_VIEWER_HEIGHT))
         self.mob_group.update()
+        font = pygame.font.Font(
+            str(assets_path.font_path("misaki_gothic_2nd.ttf")), 32)
+        cursor_pos_text = font.render(
+            f"x:{pygame.mouse.get_pos()[0]} y:{pygame.mouse.get_pos()[1]}",
+            True, WHITE)
+        self.sm.screen.blit(cursor_pos_text, (0, 0))
 
     def render_terrain(self, terrain_map):
         sprite = SpriteSheet(assets_path.img_path(
@@ -429,6 +432,7 @@ class HumanSprite(pygame.sprite.Sprite):
         self.dy = 0
         self.max_sightrange = 320
         self.min_sightrange = 0
+        self.target_pos = None
         self.rect = pygame.Rect(self.x, self.y, 6, 8)
         self.sheet = SpriteSheet(assets_path.img_path(
             "human.png"), 4, 4, 6, 8, BLACK)
@@ -439,7 +443,7 @@ class HumanSprite(pygame.sprite.Sprite):
         self.x += self.dx * 2
         self.y += self.dy * 2
         self.update_img_pos()
-        result = self.can_see_in_sightrange((100, 100))
+        result = self.can_see_in_sightrange((0, 0))
         print(result)
 
     def random_direction_y(self):
@@ -456,7 +460,7 @@ class HumanSprite(pygame.sprite.Sprite):
         self.rect.x = self.x
         self.rect.y = self.y
 
-    def can_see_in_sightrange(self, obj_be_seen_pos):
+    def can_see_in_sightrange(self, obj_be_seen_pos) -> bool:
         dist_two_point_x = obj_be_seen_pos[0] - self.x
         dist_two_point_y = obj_be_seen_pos[1] - self.y
         dist_two_point = math.sqrt(dist_two_point_x**2 + dist_two_point_y**2)
@@ -464,6 +468,10 @@ class HumanSprite(pygame.sprite.Sprite):
             return True
         else:
             return False
+    
+    def set_target_pos(self, pos):
+        self.target_pos = pos
+    # def can_see_in
 
 
 class ButtonSprite(pygame.sprite.Sprite):
