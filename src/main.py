@@ -424,10 +424,11 @@ class SpriteSheet:
 
 
 class HumanSprite(pygame.sprite.Sprite):
-    def __init__(self, x, y, *args, **kwargs):
+    def __init__(self, x, y, terrain, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.x = x
         self.y = y
+        self.terrain = terrain
         self.dx = 0
         self.dy = 0
         self.max_sightrange = 320
@@ -443,8 +444,7 @@ class HumanSprite(pygame.sprite.Sprite):
         self.x += self.dx * 2
         self.y += self.dy * 2
         self.update_img_pos()
-        result = self.can_see_in_sightrange((0, 0))
-        print(result)
+        # self.can_see_in_sightrange((0, 0))
 
     def random_direction_y(self):
         self.dy = random.randint(-1, 1)
@@ -468,10 +468,9 @@ class HumanSprite(pygame.sprite.Sprite):
             return True
         else:
             return False
-    
+
     def set_target_pos(self, pos):
         self.target_pos = pos
-    # def can_see_in
 
 
 class ButtonSprite(pygame.sprite.Sprite):
