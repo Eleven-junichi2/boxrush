@@ -19,6 +19,8 @@ KEY_REPEAT_INTERVAL = 125
 
 
 class AssetPathGetter:
+    """"""
+
     def __init__(self, root_dir_path, font_dir_name, img_dir_name,
                  saves_dir_name):
         self.asset_dir = Path(root_dir_path)
@@ -121,7 +123,7 @@ class GameScene(Scene):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.terrain = Terrain()
-        # self.TILE_SIZE = 16
+        self.TILESIZE = self.terrain.tilesize  # to be short
         self.MAP_HEIGHT = 64
         self.MAP_WIDTH = 64
         self.MAP_VIEWER_X = 16
@@ -135,7 +137,8 @@ class GameScene(Scene):
         self.terrain.reset_map(4, self.MAP_HEIGHT, self.MAP_WIDTH)
         self.terrain.fill_map(2, 0, 64, 0, 64, "Glass")
         self.map_surface = pygame.Surface(
-            (self.MAP_WIDTH*16, self.MAP_HEIGHT*16)).convert_alpha()
+            (self.MAP_WIDTH*self.TILESIZE, self.MAP_HEIGHT*self.TILESIZE)
+        ).convert_alpha()
         self.minimap_surface = pygame.Surface(
             (self.MAP_WIDTH, self.MAP_HEIGHT))
         self.water_btn = ButtonSprite("Water", 16, SCRN_HEIGHT - 139 + 16)
@@ -225,19 +228,19 @@ class GameScene(Scene):
 
     def is_pos_on_map(self, pos):
         return (self.MAP_VIEWER_X <= pos[0] <=
-                (self.MAP_VIEWER_WIDTH + 16) and
+                (self.MAP_VIEWER_WIDTH + self.TILESIZE) and
                 self.MAP_VIEWER_Y <= pos[1] <=
-                (self.MAP_VIEWER_HEIGHT + 16))
+                (self.MAP_VIEWER_HEIGHT + self.TILESIZE))
 
     def spawn_human_with_mouse(self, mouse_pos):
         spawn_x = (self.scroll_x+mouse_pos[0]-self.MAP_VIEWER_X)
         spawn_y = (self.scroll_y+mouse_pos[1]-self.MAP_VIEWER_Y)
-        human_sprite = HumanSprite(x=spawn_x, y=spawn_y)
+        human_sprite = HumanSprite(spawn_x, spawn_y, self.terrain)
         self.mob_group.add(human_sprite)
 
     def rewrite_tile_with_mouse(self, layer_id, tile_type, mouse_pos):
-        tile_x = (self.scroll_x+mouse_pos[0]-self.MAP_VIEWER_X)//16
-        tile_y = (self.scroll_y+mouse_pos[1]-self.MAP_VIEWER_Y)//16
+        tile_x = (self.scroll_x+mouse_pos[0]-self.MAP_VIEWER_X)//self.TILESIZE
+        tile_y = (self.scroll_y+mouse_pos[1]-self.MAP_VIEWER_Y)//self.TILESIZE
         self.terrain.rewrite_map_tile(layer_id, tile_x, tile_y, tile_type)
 
     def render(self):
@@ -274,25 +277,30 @@ class GameScene(Scene):
 
     def render_terrain(self, terrain_map):
         sprite = SpriteSheet(assets_path.img_path(
-            "skyeyebg.png"), 1, 1, 16, 16, BLACK)
+            "skyeyebg.png"), 1, 1, self.TILESIZE, self.TILESIZE, BLACK)
         for z in range(len(terrain_map)):
             for y in range(len(terrain_map[0])):
                 for x in range(len(terrain_map[0][0])):
                     if terrain_map[z][y][x] == 1:
                         self.map_surface.blit(
-                            sprite.image_by_cell(1, 1), (16*x, 16*y))
+                            sprite.image_by_cell(1, 1),
+                            (self.TILESIZE*x, self.TILESIZE*y))
                     elif terrain_map[z][y][x] == 2:
                         self.map_surface.blit(
-                            sprite.image_by_cell(1, 2), (16*x, 16*y))
+                            sprite.image_by_cell(1, 2),
+                            (self.TILESIZE*x, self.TILESIZE*y))
                     elif terrain_map[z][y][x] == 3:
                         self.map_surface.blit(
-                            sprite.image_by_cell(3, 1), (16*x, 16*y))
+                            sprite.image_by_cell(3, 1),
+                            (self.TILESIZE*x, self.TILESIZE*y))
                     elif terrain_map[z][y][x] == 4:
                         self.map_surface.blit(
-                            sprite.image_by_cell(2, 7), (16*x, 16*y))
+                            sprite.image_by_cell(2, 7),
+                            (self.TILESIZE*x, self.TILESIZE*y))
                     elif terrain_map[z][y][x] == 5:
                         self.map_surface.blit(
-                            sprite.image_by_cell(1, 5), (16*x, 16*y))
+                            sprite.image_by_cell(1, 5),
+                            (self.TILESIZE*x, self.TILESIZE*y))
 
     def render_minimap(self, terrain_map):
         for z in range(len(terrain_map)):
@@ -444,6 +452,7 @@ class HumanSprite(pygame.sprite.Sprite):
         self.x += self.dx * 2
         self.y += self.dy * 2
         self.update_img_pos()
+        self.search_tile("Tree", 3)
         # self.can_see_in_sightrange((0, 0))
 
     def random_direction_y(self):
@@ -468,6 +477,25 @@ class HumanSprite(pygame.sprite.Sprite):
             return True
         else:
             return False
+
+    def pos_as_tilemap(self):
+        col = self.x // self.terrain.tilesize
+        row = self.y // self.terrain.tilesize
+        return col, row
+
+    def search_tile(self, tile, layer):
+        tilemap = self.terrain.map[layer]
+        tile_id = self.terrain.tile_id_assign[tile]
+        tilesize = self.terrain.tilesize
+        # max_sightrange_of_tile = self.max_sightrange // self.terrain.tilesize
+        # min_sightrange_of_tile = self.min_sightrange // self.terrain.tilesize
+        for y in range(len(tilemap)):
+            for x in range(len(tilemap[y])):
+                if tilemap[y][x] == tile_id:
+                    search_result = self.can_see_in_sightrange(
+                        (x*tilesize, y*tilesize))
+                    print(search_result)
+                    # homepos_of_search = self.pos_as_tilemap
 
     def set_target_pos(self, pos):
         self.target_pos = pos
@@ -548,6 +576,7 @@ class Terrain:
                                "Dirt": 2, "Water": 3, "Tree": 4, "Mount": 5}
         self.tile_type_from_id = get_swap_dict(self.tile_id_assign)
         self.map = [[[]]]
+        self.tilesize = 16
 
     def reset_map(self, layer_num, height, width, init_tile=None):
         self.map = [[[self.tile_id_assign[init_tile] for x in range(
