@@ -7,6 +7,8 @@ import math
 
 import pygame
 
+from gamesystem import scene_transision as scenetrans
+
 GAME_TITLE = "YUMA"
 MAIN_PRG_DIR = pathlib.Path(__file__).absolute().parent
 SCRN_WIDTH = 768  # 512*1.5
@@ -19,8 +21,6 @@ KEY_REPEAT_INTERVAL = 125
 
 
 class AssetPathGetter:
-    """"""
-
     def __init__(self, root_dir_path, font_dir_name, img_dir_name,
                  saves_dir_name):
         self.asset_dir = Path(root_dir_path)
@@ -42,35 +42,14 @@ assets_path = AssetPathGetter(
     MAIN_PRG_DIR / "assets", "fonts", "imgs", "saves")
 
 
-class SceneManager:
+class GameSceneManager(scenetrans.SceneManager):
     def __init__(self, screen: pygame.Surface, game):
+        super().__init__()
         self.screen = screen
         self.game = game
-        self.scene_list = {}
-        self.current_scene = None
-
-    def append_scene(self, scene_name, scene):
-        self.scene_list[scene_name] = scene
-
-    def set_current_scene(self, scene_name):
-        self.current_scene = self.scene_list[scene_name]
 
 
-class Scene:
-    def __init__(self, scene_manager: SceneManager):
-        self.sm = scene_manager
-
-    def handle_event(self, event):
-        pass
-
-    def update(self):
-        pass
-
-    def render(self):
-        pass
-
-
-class TitleScene(Scene):
+class TitleScene(scenetrans.Scene):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.menu_items = ["game", "config", "exit"]
@@ -119,7 +98,7 @@ class TitleScene(Scene):
                 (title_pos[0] * 0.75, title_pos[1] * (self.menu_select_num+3)))
 
 
-class GameScene(Scene):
+class GameScene(scenetrans.Scene):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.terrain = Terrain()
@@ -134,6 +113,7 @@ class GameScene(Scene):
         self.scroll_y = 0
         self.scroll_vx = 0
         self.scroll_vy = 0
+        self.mouse_pos_history = []
         self.terrain.reset_map(4, self.MAP_HEIGHT, self.MAP_WIDTH)
         self.terrain.fill_map(2, 0, 64, 0, 64, "Glass")
         self.map_surface = pygame.Surface(
@@ -166,7 +146,7 @@ class GameScene(Scene):
                            self.save_btn, self.load_btn,
                            self.destroy_tile_btn)
         self.mob_group = pygame.sprite.Group()
-        self.mouse_pos_history = []
+        self.tile_group = pygame.sprite.Group()
 
     def handle_event(self, event):
         if event.type == pygame.KEYDOWN:
@@ -292,6 +272,7 @@ class GameScene(Scene):
                            mob.max_sightrange, 1)
 
     def render_terrain(self, terrain_map):
+        # TODO タイルマップのリファクタリング(スプライト化)
         sprite = SpriteSheet(assets_path.img_path(
             "skyeyebg.png"), 1, 1, self.TILESIZE, self.TILESIZE, BLACK)
         for z in range(len(terrain_map)):
@@ -336,7 +317,7 @@ class GameScene(Scene):
                     self.minimap_surface.fill(minimap_tile_color, (x, y, 1, 1))
 
 
-class WorldSelectScene(Scene):
+class WorldSelectScene(scenetrans.Scene):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.wm = self.sm.game.world_manager
@@ -412,20 +393,6 @@ class SpriteSheet:
         self.cell_height = cell_height
         self.current_row = 0
         self.current_column = 0
-        self.cell_anims = {"animation_name": ((0, 0), (0, 0))}
-
-    def set_current_cell(self, row, column):
-        self.current_row = row
-        self.current_column = column
-
-    def define_new_cell_anim(self, new_animation_name):
-        self.cell_anims[new_animation_name] = []
-
-    def append_cell_anim(self, animation_name, row, colmun):
-        self.cell_anims[animation_name].append([row, colmun])
-
-    def animation_cell(self, animation_name, start, end):
-        yield self.cell_anims[animation_name][start:end]
 
     def image_by_area(self, x, y, width, height) -> pygame.Surface:
         image = pygame.Surface((width, height))
@@ -556,6 +523,44 @@ class ButtonSprite(pygame.sprite.Sprite):
         self.image = btn_surface
 
 
+class TileSprite(pygame.sprite.Sprite):
+    def __init__(self, x, y, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.rect = pygame.Rect(x, y, 16, 16)
+        self.tileimg_sheet = SpriteSheet(assets_path.img_path(
+            "skyeyebg.png"))
+
+
+class TreeTileSprite(TileSprite):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.image = self.tileimg_sheet.image_by_cell(2, 7)
+
+
+class GlassTileSprite(TileSprite):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.image = self.tileimg_sheet.image_by_cell(1, 1)
+
+
+class DirtTileSprite(TileSprite):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.image = self.tileimg_sheet.image_by_cell(1, 2)
+
+
+class WaterTileSprite(TileSprite):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.image = self.tileimg_sheet.image_by_cell(3, 1)
+
+
+class MountTileSprite(TileSprite):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.image = self.tileimg_sheet.image_by_cell(1, 5)
+
+
 def get_swap_dict(dictionary):
     return {value: key for key, value in dictionary.items()}
 
@@ -592,7 +597,7 @@ class Game:
         self.screen = pygame.display.set_mode(SCRN_SIZE)
         self.world_manager = WorldDataManager(MAIN_PRG_DIR / "saves")
         # sm means "screen manager"
-        self.sm = SceneManager(self.screen, self)
+        self.sm = GameSceneManager(self.screen, self)
         self.sm.append_scene("title", TitleScene(self.sm))
         self.sm.append_scene("game", GameScene(self.sm))
         self.sm.append_scene("world_select", WorldSelectScene(self.sm))
