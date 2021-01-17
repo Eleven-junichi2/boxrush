@@ -276,6 +276,8 @@ class GameScene(Scene):
                              0+self.scroll_y,
                              self.MAP_VIEWER_WIDTH,
                              self.MAP_VIEWER_HEIGHT))
+        for mob in self.mob_group:
+            self.render_mob_sightrange(mob)
         self.mob_group.update()
         font = pygame.font.Font(
             str(assets_path.font_path("misaki_gothic_2nd.ttf")), 32)
@@ -283,6 +285,11 @@ class GameScene(Scene):
             f"x:{pygame.mouse.get_pos()[0]} y:{pygame.mouse.get_pos()[1]}",
             True, WHITE)
         self.sm.screen.blit(cursor_pos_text, (0, 0))
+
+    def render_mob_sightrange(self, mob):
+        pygame.draw.circle(self.sm.screen, (255, 0, 0),
+                           (mob.x+mob.rect.width//2, mob.y+mob.rect.height//2),
+                           mob.max_sightrange, 1)
 
     def render_terrain(self, terrain_map):
         sprite = SpriteSheet(assets_path.img_path(
@@ -448,7 +455,7 @@ class HumanSprite(pygame.sprite.Sprite):
         self.terrain = terrain
         self.dx = 0
         self.dy = 0
-        self.max_sightrange = 320
+        self.max_sightrange = 160
         self.min_sightrange = 0
         self.target_pos = None
         self.rect = pygame.Rect(self.x, self.y, 6, 8)
@@ -503,7 +510,7 @@ class HumanSprite(pygame.sprite.Sprite):
             for x in range(len(tilemap[y])):
                 if tilemap[y][x] == tile_id:
                     search_result = self.can_see_in_sightrange(
-                        (x*(tilesize*0.5), y*(tilesize*0.5)))
+                        (x*tilesize, y*tilesize))
                     if search_result:
                         break
         return search_result
