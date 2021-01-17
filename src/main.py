@@ -149,7 +149,7 @@ class HumanSprite(pygame.sprite.Sprite):
             for x in range(len(tilemap[y])):
                 if tilemap[y][x] == tile_id:
                     search_result = self.can_see_in_sightrange(
-                        (x*tilesize, y*tilesize))
+                        (x*tilesize+tilesize//2, y*tilesize+tilesize//2))
                     if search_result:
                         break
         return search_result
