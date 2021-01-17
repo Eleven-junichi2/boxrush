@@ -556,34 +556,6 @@ class ButtonSprite(pygame.sprite.Sprite):
         self.image = btn_surface
 
 
-class Tile:
-    def __init__(self):
-        self.layer = 0
-        self.barrier = False
-        self.name = ""
-
-
-class WaterTile(Tile):
-    def __init__(self):
-        super().__init__()
-        self.name = "Water"
-        self.layer = 0
-
-
-class DirtTile(Tile):
-    def __init__(self):
-        super().__init__()
-        self.name = "Dirt"
-        self.layer = 1
-
-
-class GlassTile(Tile):
-    def __init__(self):
-        super().__init__()
-        self.name = "Dirt"
-        self.layer = 2
-
-
 def get_swap_dict(dictionary):
     return {value: key for key, value in dictionary.items()}
 
