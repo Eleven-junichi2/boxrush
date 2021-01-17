@@ -385,9 +385,7 @@ class GameScene(scenetrans.Scene):
                         if btn_sprite.id == "Human":
                             self.spawn_human_with_mouse(event.pos)
                         if btn_sprite.id == "Eraser":
-                            self.rewrite_tile_with_mouse(
-                                3, None, event.pos
-                            )
+                            self.destroy_tile_with_mouse(event.pos)
         # scroll map
         self.scroll_x += self.scroll_vx
         self.scroll_y += self.scroll_vy
@@ -410,6 +408,15 @@ class GameScene(scenetrans.Scene):
         tile_x = (self.scroll_x+mouse_pos[0]-self.MAP_VIEWER_X)//self.TILESIZE
         tile_y = (self.scroll_y+mouse_pos[1]-self.MAP_VIEWER_Y)//self.TILESIZE
         self.terrain.rewrite_map_tile(layer_id, tile_x, tile_y, tile_type)
+
+    def destroy_tile_with_mouse(self, mouse_pos):
+        tile_x = (self.scroll_x+mouse_pos[0]-self.MAP_VIEWER_X)//self.TILESIZE
+        tile_y = (self.scroll_y+mouse_pos[1]-self.MAP_VIEWER_Y)//self.TILESIZE
+        self.terrain.rewrite_map_tile(3, tile_x, tile_y, None)
+        # for layer in range(len(self.terrain.map)):
+        # if self.terrain.map[layer][tile_y][tile_x]:
+        # print("aaa")
+        # self.terrain.rewrite_map_tile(layer, tile_x, tile_y, "Water")
 
     def render(self):
         self.sm.screen.fill(BLACK)
