@@ -156,11 +156,15 @@ class GameScene(Scene):
         self.load_btn = ButtonSprite(
             "Load", 16 + btn_size[0] + 16,
             SCRN_HEIGHT - 139 + 16 + btn_size[1] + 16)
+        self.destroy_tile_btn = ButtonSprite(
+            "Eraser", 16 + btn_size[0]*2 + 16*2,
+            SCRN_HEIGHT - 139 + 16 + btn_size[1] + 16)
         self.btn_group = pygame.sprite.RenderUpdates()
         self.btn_group.add(self.water_btn, self.dirt_btn,
                            self.mount_btn, self.tree_btn,
                            self.human_btn,
-                           self.save_btn, self.load_btn)
+                           self.save_btn, self.load_btn,
+                           self.destroy_tile_btn)
         self.mob_group = pygame.sprite.Group()
         self.mouse_pos_history = []
 
@@ -220,6 +224,10 @@ class GameScene(Scene):
                                 3, "Tree", event.pos)
                         if btn_sprite.id == "Human":
                             self.spawn_human_with_mouse(event.pos)
+                        if btn_sprite.id == "Eraser":
+                            self.rewrite_tile_with_mouse(
+                                3, None, event.pos
+                            )
         # scroll map
         self.scroll_x += self.scroll_vx
         self.scroll_y += self.scroll_vy
@@ -259,6 +267,7 @@ class GameScene(Scene):
         self.tree_btn.set_image_with_icon(2, 1)
         self.save_btn.set_image_with_icon(2, 2)
         self.load_btn.set_image_with_icon(2, 3)
+        self.destroy_tile_btn.set_image_with_icon(2, 4)
         self.btn_group.draw(self.sm.screen)
         self.mob_group.draw(self.map_surface)
         self.sm.screen.blit(self.map_surface,
@@ -452,7 +461,9 @@ class HumanSprite(pygame.sprite.Sprite):
         self.x += self.dx * 2
         self.y += self.dy * 2
         self.update_img_pos()
-        self.search_tile("Tree", 3)
+        search_result = self.search_tile("Tree", 3)
+        if search_result:
+            print("can find")
         # self.can_see_in_sightrange((0, 0))
 
     def random_direction_y(self):
@@ -483,19 +494,19 @@ class HumanSprite(pygame.sprite.Sprite):
         row = self.y // self.terrain.tilesize
         return col, row
 
-    def search_tile(self, tile, layer):
+    def search_tile(self, tile, layer) -> bool:
         tilemap = self.terrain.map[layer]
         tile_id = self.terrain.tile_id_assign[tile]
         tilesize = self.terrain.tilesize
-        # max_sightrange_of_tile = self.max_sightrange // self.terrain.tilesize
-        # min_sightrange_of_tile = self.min_sightrange // self.terrain.tilesize
+        search_result = False
         for y in range(len(tilemap)):
             for x in range(len(tilemap[y])):
                 if tilemap[y][x] == tile_id:
                     search_result = self.can_see_in_sightrange(
-                        (x*tilesize, y*tilesize))
-                    print(search_result)
-                    # homepos_of_search = self.pos_as_tilemap
+                        (x*(tilesize*0.5), y*(tilesize*0.5)))
+                    if search_result:
+                        break
+        return search_result
 
     def set_target_pos(self, pos):
         self.target_pos = pos
