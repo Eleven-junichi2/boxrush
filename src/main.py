@@ -419,7 +419,7 @@ class GameScene(scenetrans.Scene):
         # self.terrain.rewrite_map_tile(layer, tile_x, tile_y, "Water")
 
     def render(self):
-        self.sm.screen.fill(BLACK)
+        self.sm.screen.fill((127, 127, 255))
         self.render_terrain(self.terrain.map)
         self.render_minimap(self.terrain.map)
         self.sm.screen.blit(self.minimap_surface,
